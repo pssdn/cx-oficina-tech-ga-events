@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <h1>Exemplos de registro de eventos do usuário</h1>
+    <h2>Debug</h2>
+    <p>Ferramentas para auxiliar no debug das informações de carregamento e rastreamento das tags Google.</p>
+    <ul>
+        <li><a href="https://chrome.google.com/webstore/detail/google-analytics-debugger/jnkmfdileelhofjcijamephohjechhna"
+                target="_blank">Google
+                Analytics Debugger</a></li>
+        <li><a href="https://chrome.google.com/webstore/detail/tag-assistant-legacy-by-g/kejbdjndbnbjgmefkgdddjlbokphdefk"
+                target="_blank">Tag
+                Assistant legacy</a></li>
+    </ul>
+
+    <h2>Exemplos</h2>
+    <p>Dica: não deixe de acompanhar as informações de debug pelo console.</p>
+    <nav>
+        <ul>
+            <li><button onclick="manipulaEventoElemento(this)" data-event-category="nav" data-event-label="Botão clique"
+                    data-event-action="click" data-event-interaction="true">Evento clique</button></li>
+
+            <li><button onclick="manipulaEventoElemento(this)" data-event-category="nav"
+                    data-event-label="Botão clique omite interação" data-event-action="click">Evento clique omite
+                    interação</button>
+            </li>
+
+            <li><button onmouseenter="manipulaEventoElemento(this)" data-event-category="nav"
+                    data-event-label="Botão hover" data-event-action="hover" data-event-interaction="false">Evento
+                    hover</button></li>
+        </ul>
+    </nav>
+
+    <hr>
+
+    <h2>Mockup de exercício</h2>
+    <img src="https://beon-assets.s3.us-east-2.amazonaws.com/6fa777f5-9b8a-45bb-905e-27fe6afa91f5/CX-oficina-mockup.png"
+        width="846" height="2656">
+
+
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-184221692-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'UA-184221692-1');
+    </script>
+
+    <script type="text/javascript">
+
+        function manipulaEventoElemento(event) {
+            const target = event.nodeName ? event : event.target;
+
+            console.log(`Manipulando evento no elemento ${target}.`)
+
+            const origemEvento = selecionaOrigemEvento(target);
+            const { category, label, action, interaction } = origemEvento;
+
+            console.log(`Informações do evento adquiridas: ${origemEvento}.`)
+
+            return registraEvento({ category, label, action, interaction: interaction === "false" ? false : true });
+        }
+
+        function selecionaOrigemEvento(target) {
+            if (target.nodeName.toLowerCase() === 'body')
+                throw new Error(`Informações do evento não foram localizadas na árvore do elemento alvo.`)
+
+            if (!target.hasAttribute(`data-event-category`))
+                return selecionaOrigemEvento(target.parentNode);
+
+            const category = target.getAttribute(`data-event-category`);
+            const label = target.getAttribute(`data-event-label`);
+            const action = target.getAttribute(`data-event-action`);
+            const interaction = target.getAttribute(`data-event-interaction`);
+
+            return { category, label, action, interaction };
+        }
+
+        function registraEvento({
+            category, action, label, interaction = true
+        }) {
+            if (!category || !action || !label)
+                throw new Error(`Informações básicas, como categoria, rótulo e ação do evento devem ser informados.`)
+
+            const trackers = selecionaRastreadores();
+
+            if (!trackers || !trackers.length)
+                throw new Error(`Sem rastreadores na página para registrar o evento.`)
+
+            let eventsSent = 0;
+
+            for (let i = 0, c = trackers.length; i < c; i++) {
+                const tracker = trackers[i];
+                const trackerPropId = tracker?.model?.data?.ia[':trackingId'];
+
+                console.log(`Registrando evento de ${!interaction ? `não ` : ``}interação ${[action, category, label].join(' > ')} em ${trackerPropId}`);
+
+                // Usa rastreador no padrão gtag
+                if (window.gtag) {
+                    const eventParameters = {
+                        'send_to': trackerPropId,
+                        'event_category': category,
+                        'event_label': label,
+                        'non_interaction': !interaction
+                    };
+
+                    gtag('event', action, eventParameters);
+                } else {
+                    console.log(`Utilizando método legado`);
+                    tracker.send("event", category, action, label, { nonInteraction: !interaction });
+                }
+
+                eventsSent++;
+            }
+
+            return eventsSent;
+        }
+
+        function selecionaRastreadores() {
+            const gaTrackers = [];
+
+            if ("ga" in window) {
+                const gaInstances = window.ga.getAll ? window.ga.getAll() : [];
+
+                console.log(`Instâncias do Analytics localizadas: ${gaInstances.length}`);
+
+                if (gaInstances.length) {
+                    Array.prototype.push.apply(gaTrackers, gaInstances);
+                }
+            }
+
+            if (!gaTrackers.length) {
+                console.log(`Nenhuma instância do Analytics foi localizada na página`);
+                return;
+            }
+
+            return gaTrackers;
+        }
+
+    </script>
+</body>
+
+</html>
